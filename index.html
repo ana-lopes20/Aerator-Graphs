@@ -1,1 +1,513 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Elfsquad Graph</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
+  <style>
+    html, body {
+      background-color: #fff;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      appearance: none;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      padding: 10px 16px;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+    .tab-btn:hover {
+      color: #1f77b4;
+    }
+    .tab-btn.active {
+      color: #1f77b4;
+      border-bottom-color: #1f77b4;
+      font-weight: bold;
+    }
+    .tab-pane { }
+    .chart-wrap {
+      position: relative;
+      height: 500px;
+      width: 100%;
+      background-color: #fff;
+    }
+    h3 { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
 
+<div class="tabs">
+  <button class="tab-btn active" data-tab="freq">Frequency curve</button>
+  <button class="tab-btn" data-tab="oc">OC &amp; Shaft vs Immersion Depth</button>
+</div>
+
+<div id="tab-freq" class="tab-pane">
+  <h3>Frequency curve</h3>
+  <div class="chart-wrap">
+    <canvas id="freqChart"></canvas>
+  </div>
+</div>
+
+<div id="tab-oc" class="tab-pane" style="display:none">
+  <h3>OC &amp; Shaft vs Immersion Depth</h3>
+  <div class="chart-wrap">
+    <canvas id="ocChart"></canvas>
+  </div>
+</div>
+
+<script>
+let freqChart, ocChart;
+
+function round(value, decimals) {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function toPoints(xs, ys) {
+  return xs.map((x, i) => ({ x: Number(x), y: Number(ys[i]) }));
+}
+
+function baseChartOptions(xTitle) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    scales: {
+      x: {
+        type: 'linear',
+        position: 'bottom',
+        title: { display: true, text: xTitle },
+        grid: { color: '#e0e0e0' }
+      },
+      yShaft: {
+        type: 'linear',
+        position: 'left',
+        title: { display: true, text: 'Aerator Shaft [kW]', color: '#c0392b' },
+        ticks: { color: '#c0392b' },
+        grid: { color: '#e0e0e0' }
+      },
+      yOC: {
+        type: 'linear',
+        position: 'right',
+        title: { display: true, text: 'Oxygenation Capacity [kg O₂/h]', color: '#1f77b4' },
+        ticks: { color: '#1f77b4' },
+        grid: { drawOnChartArea: false }
+      }
+    },
+    plugins: {
+      legend: { position: 'top' },
+      annotation: {
+        annotations: {
+          designLine: {
+            type: 'line',
+            scaleID: 'x',
+            value: 0,
+            borderColor: '#7a8c1f',
+            borderWidth: 2,
+            label: {
+              display: true,
+              content: 'Design',
+              position: 'start',
+              backgroundColor: 'rgba(122,140,31,0.85)',
+              color: '#fff'
+            }
+          },
+          maxLine: {
+            type: 'line',
+            scaleID: 'x',
+            value: 0,
+            borderColor: '#000',
+            borderWidth: 2,
+            label: {
+              display: true,
+              content: 'Maximum',
+              position: 'start',
+              backgroundColor: 'rgba(0,0,0,0.85)',
+              color: '#fff'
+            }
+          }
+        }
+      }
+    }
+  };
+}
+
+function baseDatasets() {
+  return [
+    {
+      label: 'OC [kg O₂/h]',
+      data: [],
+      yAxisID: 'yOC',
+      borderColor: '#1f77b4',
+      backgroundColor: '#1f77b4',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0
+    },
+    {
+      label: 'Aerator Shaft [kW]',
+      data: [],
+      yAxisID: 'yShaft',
+      borderColor: '#c0392b',
+      backgroundColor: '#c0392b',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0
+    }
+  ];
+}
+
+function initFreqChart() {
+  const ctx = document.getElementById('freqChart').getContext('2d');
+  options.scales.x.ticks = { stepSize: 2 };
+  freqChart = new Chart(ctx, {
+    type: 'line',
+    data: { datasets: baseDatasets() },
+    options: baseChartOptions('Hz')
+  });
+}
+
+function initOCChart() {
+  const ctx = document.getElementById('ocChart').getContext('2d');
+  ocChart = new Chart(ctx, {
+    type: 'line',
+    data: { datasets: baseDatasets() },
+    options: baseChartOptions('Immersion Depth [mm]')
+  });
+}
+
+// ─── Shared value extraction ────────────────────────────────────────────────
+//
+// Both charts read a largely overlapping set of Elfsquad feature values
+// (diameter, A, B, en, ed, RPM, design immersion, ...). Rather than each
+// mapData* function reading config.values independently, this does the
+// GUID → number lookup exactly once per configurationUpdated event; both
+// mapData* functions below just consume the already-parsed result.
+
+function extractValues(config) {
+  const raw = config.values || {};
+  const get = (id) => raw[id]?.value;
+
+  return {
+    // ─── shared by both charts ───────────────────────────────────────────
+    diameter: Number(get('631f5fbb-0e21-40b8-d41f-08ded1df9683')),
+    A: Number(get('f4e11594-8186-4c82-9d4f-08ded1df36b8')),
+    B: Number(get('e6f092b1-122c-4a68-dbf9-08ded1e2d0bd')),
+    en: Number(get('8256694b-8a23-474a-3ed3-08ded1e03ef1')),
+    ed: Number(get('d94a4728-ae65-4323-3ed4-08ded1e03ef1')),
+    RPM: Number(get('1f189a11-8930-4983-d421-08ded1df9683')),
+    designImmersion: Number(get('0107f6ba-fc0c-480a-f105-08ded128ace1') ?? 76),
+
+    // ─── ADJUST THESE KEYS TO MATCH YOUR ELFSQUAD FEATURE CODES ──────────
+    // frequency chart only
+    maxFreq: Number(get('87593bef-99fe-47e0-1e8b-08dedac84586') ?? 50),
+    rendement: Number(get('71959926-2671-4c7b-0acb-08dec13e7ead' ?? 2.3)),
+    // ───────────────────────────────────────────────────────────────────
+
+    // OC/immersion chart only
+    torqueGearbox: Number(get('e116ed81-9463-4612-0140-08ded1defffe')),
+    minServiceFactor: Number(get('cd55d031-3552-450a-c5fa-08dec13e7b91')),
+    actualMotorPowerWithDerating: Number(get('0567a18a-77cd-4c9c-d434-08ded1df9683')),
+    gearboxEfficiency: Number(get('c0652a53-6407-40fc-1338-08dec1e9ecbf')),
+    derating: Number(get('69a3a91b-6025-4779-9c8f-08dec205df14')),
+  };
+}
+
+// ─── Frequency curve ────────────────────────────────────────────────────────
+
+function calcShaftPower(hz, maxHz, RPM, A, B, en, ed, diameter, designimmersion) {
+  return (A * designimmersion + B)
+       * Math.pow(RPM / 60, en - 2)
+       * Math.pow(diameter / 1000, ed - 1)
+       * 9.81;
+}
+
+function mapDataFrequency(v) {
+  const minFreq = v.maxFreq - 20;  // 60Hz → 40–60, 50Hz → 30–50
+
+    // Shaft power at a given Hz
+    function calcShaftPower(freq) {
+      const rpm = (freq / v.maxFreq) * v.RPM;
+      return (v.A * (v.designImmersion/v.diameter) + v.B)
+          * Math.pow(rpm / 60, v.en - 2)
+          * Math.pow(v.diameter / 1000, v.ed - 1)
+          * 9.81;
+    }
+
+    function calcEfficiency(freq) {
+      return (freq / v.maxFreq) * v.rendement
+    }
+
+    // OC = shaft power * efficiency at that frequency.
+    function calcOC(freq) {
+      return calcShaftPower(freq) * calcEfficiency(freq);
+    }
+
+    // Build arrays from minFreq to maxFreq in 1 Hz steps
+    const freqList   = [];
+    const shaftPowerList = [];
+    const ocList    = [];
+
+    for (let freq = minFreq; freq <= v.maxFreq; freq++) {
+      freqList.push(freq);
+      shaftPowerList.push(calcShaftPower(freq));
+      ocList.push(calcOC(freq));
+    }
+
+    return { freqList, shaftPowerList, ocList, minFreq, maxFreq };
+}
+
+function updateFrequencyChart(v) {
+  const d = mapDataFrequency(v);
+
+  freqChart.data.datasets[0].data = toPoints(d.freqList, d.ocList);
+  freqChart.data.datasets[1].data = toPoints(d.freqList, d.shaftPowerList);
+
+  freqChart.options.scales.x.min = d.minFreq;
+  freqChart.options.scales.x.max = d.maxFreq;
+
+  const ocVals    = d.ocList.map(Number).filter(Number.isFinite);
+  const shaftVals = d.shaftPowerList.filter(Number.isFinite);
+
+  if (ocVals.length) {
+    const mn = Math.min(...ocVals), mx = Math.max(...ocVals);
+    const pad = (mx - mn) * 0.05 || 1;
+    freqChart.options.scales.yOC.min = mn - pad;
+    freqChart.options.scales.yOC.max = mx + pad;
+  }
+  if (shaftVals.length) {
+    const mn = Math.min(...shaftVals), mx = Math.max(...shaftVals);
+    const pad = (mx - mn) * 0.05 || 1;
+    freqChart.options.scales.yShaft.min = mn - pad;
+    freqChart.options.scales.yShaft.max = mx + pad;
+  }
+
+  const anns = freqChart.options.plugins.annotation.annotations;
+
+  anns.designLine.value = d.design;
+  anns.designLine.label = { ...anns.designLine.label, content: `Design: ${d.design} Hz` };
+
+  anns.maxLine.value = d.maxFreq;
+  anns.maxLine.label = { ...anns.maxLine.label, content: `Maximum: ${d.maxFreq} Hz` };
+
+  freqChart.update('none');
+
+  return d;
+}
+
+// ─── OC & Shaft vs Immersion Depth ──────────────────────────────────────────
+
+function mapDataOC(v) {
+  const immersionRangeFactor = [
+    -0.05, -0.04, -0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03, 0.04,
+    0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.125,
+  ]
+
+  // Shared by the shaft-power curve and both immersion-depth-limit formulas
+  // below (only `factor` differs between points on the curve).
+  const k = Math.pow(v.RPM/60, v.en-2) * Math.pow(v.diameter/1000, v.ed-1) * 9.81
+
+  const immersionList = immersionRangeFactor.map((factor) => round(factor * v.diameter, 2))
+
+  const shaftList = immersionRangeFactor.map((factor) => round((v.A * factor + v.B) * k, 2))
+
+  const ocList = shaftList.map((shaft) => round(shaft * 2.3, 2))
+
+  // Calculation of max immersion depth - determined by whichever system is the
+  // limiting factor, the gearbox or the motor.
+
+  // Gearbox power at min service factor and corresponding immersion depth
+  const maxGearboxPower = (v.torqueGearbox / 1000) * 2 * Math.PI * (v.RPM / 60)
+  const maxGearboxPowerForAerator = maxGearboxPower / v.minServiceFactor
+  const immersionDepthGearbox = ((maxGearboxPowerForAerator / k - v.B) / v.A) * v.diameter
+
+  // Motor power and corresponding immersion depth
+  const motorPowerAfterGearbox = v.actualMotorPowerWithDerating * v.gearboxEfficiency * v.derating
+  const immersionDepthMotor = ((motorPowerAfterGearbox / k - v.B) / v.A) * v.diameter
+
+  let max = 0
+  if (immersionDepthGearbox > immersionDepthMotor) {
+    max = round(immersionDepthMotor, 1)
+  } else {
+    max = round(immersionDepthGearbox, 1)
+  }
+
+  const limit = 0.125 * v.diameter
+  if (immersionDepthGearbox > limit || immersionDepthMotor > limit) {
+    max = round(limit, 1)
+  }
+
+  return {
+    immersionList,
+    ocList,
+    shaftList,
+    design: round(v.designImmersion, 2),
+    max
+  };
+}
+
+function updateOCChart(values) {
+  const d = mapDataOC(values);
+  ocChart.data.datasets[0].data = toPoints(d.immersionList, d.ocList);
+  ocChart.data.datasets[1].data = toPoints(d.immersionList, d.shaftList);
+
+  // Both y-axes share the same range, computed from the combined data of both series.
+  const allY = [...d.ocList, ...d.shaftList].filter((v) => Number.isFinite(v));
+  if (allY.length) {
+    let yMin = Math.min(...allY);
+    let yMax = Math.max(...allY);
+    const pad = (yMax - yMin) * 0.05 || 1;
+    yMin -= pad;
+    yMax += pad;
+
+    ocChart.options.scales.yShaft.min = yMin;
+    ocChart.options.scales.yShaft.max = yMax;
+    ocChart.options.scales.yOC.min = yMin;
+    ocChart.options.scales.yOC.max = yMax;
+  }
+
+  const anns = ocChart.options.plugins.annotation.annotations;
+
+  anns.designLine.value = d.design;
+  anns.designLine.label = { ...anns.designLine.label, content: `Design: ${d.design}` };
+
+  anns.maxLine.value = d.max;
+  anns.maxLine.label = { ...anns.maxLine.label, content: `Maximum: ${d.max}` };
+
+  ocChart.update('none');
+
+  return d;
+}
+
+// ─── Image export & Elfsquad messaging ──────────────────────────────────────
+//
+// Each chart is exported from an offscreen fixed-size canvas rather than the
+// visible one, because only one tab is shown at a time (the hidden tab's
+// on-screen canvas has zero size and would export a blank image).
+
+function exportChartImage(sourceChart, width, height) {
+  const off = document.createElement('canvas');
+  off.width = width;
+  off.height = height;
+
+  const offChart = new Chart(off.getContext('2d'), {
+    type: 'line',
+    data: sourceChart.config.data,
+    options: {
+      ...sourceChart.config.options,
+      responsive: false,
+      maintainAspectRatio: false,
+      animation: false,
+      devicePixelRatio: 1
+    }
+  });
+
+  const dataUrl = offChart.toBase64Image('image/png', 1);
+  offChart.destroy();
+  return dataUrl;
+}
+
+function sendImage(sourceChart, nodeId) {
+  const dataUrl = exportChartImage(sourceChart, 1280, 720);
+  window.top.postMessage({
+    name: 'elfsquad.updateImageValue',
+    args: { nodeId, image: dataUrl },
+  }, '*');
+}
+
+const FREQ_IMAGE_NODE_ID = '7a40d8e6-a6cb-4ca1-3ef0-08ded1e03ef1';
+const OC_IMAGE_NODE_ID   = '87f1b0ed-251b-4294-8fcf-08dedac916a3';
+
+let lastFreqSig = null;
+let lastOCSig = null;
+
+function handleConfigUpdate(config) {
+  const values = extractValues(config);
+
+  try {
+    const freqData = updateFrequencyChart(values);
+    const sig = JSON.stringify(freqData);
+    if (sig !== lastFreqSig) {
+      lastFreqSig = sig;
+      sendImage(freqChart, FREQ_IMAGE_NODE_ID);
+    }
+  } catch (e) {
+    console.warn('Frequency chart update skipped:', e);
+  }
+
+  try {
+    const ocData = updateOCChart(values);
+    const sig = JSON.stringify(ocData);
+    if (sig !== lastOCSig) {
+      lastOCSig = sig;
+      sendImage(ocChart, OC_IMAGE_NODE_ID);
+    }
+  } catch (e) {
+    console.warn('OC chart update skipped:', e);
+  }
+}
+
+window.addEventListener('message', function (e) {
+  if (e.data && e.data.name === 'elfsquad.configurationUpdated') {
+    console.log('Received configuration update:', e.data.args);
+    handleConfigUpdate(e.data.args);
+  }
+});
+
+// ─── Tabs ────────────────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach((p) => (p.style.display = 'none'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).style.display = '';
+  });
+});
+
+// ─── Init ────────────────────────────────────────────────────────────────
+
+// Draw a white background behind everything on the canvas, so the exported
+// PNG (toBase64Image) is opaque white instead of transparent. Registered
+// globally, so it applies to both on-screen charts and both offscreen
+// export charts.
+const whiteBackground = {
+  id: 'whiteBackground',
+  beforeDraw: (chart) => {
+    const { ctx, width, height } = chart;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+};
+
+Chart.register(window['chartjs-plugin-annotation'], whiteBackground);
+
+initFreqChart();
+initOCChart();
+
+// Render defaults immediately so the graphs aren't empty before the first
+// message. extractValues() reads missing fields as NaN rather than throwing,
+// but each chart's update still runs inside its own try/catch in
+// handleConfigUpdate() as a safety net against unexpected data shapes.
+handleConfigUpdate({});
+</script>
+</body>
+</html>
