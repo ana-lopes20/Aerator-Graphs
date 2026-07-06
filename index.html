@@ -234,6 +234,11 @@ function extractValues(config) {
     actualMotorPowerWithDerating: Number(get('0567a18a-77cd-4c9c-d434-08ded1df9683')),
     gearboxEfficiency: Number(get('c0652a53-6407-40fc-1338-08dec1e9ecbf')),
     derating: Number(get('69a3a91b-6025-4779-9c8f-08dec205df14')),
+   // ───────────────────────────────────────────────────────────────────
+
+    // Specific Power chart only
+  volume:          Number(get('90408fd7-608a-4784-a111-a4b300b599ef')),
+specificPowerRequired: Number(get('328c02c9-7e35-4e3a-0d49-08dedac8a05b'))
   };
 }
 
@@ -397,6 +402,101 @@ function updateOCChart(values) {
   return d;
 }
 
+  // ─── Specific Power chart ────────────────────────────────────────────────────
+let spChart;
+
+function initSPChart() {
+  const ctx = document.getElementById('spChart').getContext('2d');
+  spChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Calculated Specific Power [W/m³]',
+          data: [],
+          borderColor: '#1f77b4',
+          backgroundColor: '#1f77b4',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0
+        },
+        {
+          label: 'Required Specific Power [W/m³]',
+          data: [],
+          borderColor: '#e67e22',
+          backgroundColor: '#e67e22',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0,
+          borderDash: [6, 3]
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          type: 'linear',
+          position: 'bottom',
+          title: { display: true, text: 'Hz' },
+          ticks: { stepSize: 2 },
+          grid: { color: '#e0e0e0' }
+        },
+        y: {
+          type: 'linear',
+          position: 'left',
+          title: { display: true, text: 'Specific Power [W/m³]' },
+          grid: { color: '#e0e0e0' }
+        }
+      },
+      plugins: {
+        legend: { position: 'top' },
+        annotation: { annotations: {} }
+      }
+    }
+  });
+}
+
+function mapDataSP(v) {
+  const minFreq = v.maxFreq - 20;
+  const freqList = [];
+  const calcSPList = [];
+  const reqSPList = [];
+
+  for (let freq = minFreq; freq <= v.maxFreq; freq++) {
+    const rpm = (freq / v.maxFreq) * v.RPM;
+    const specificPower = (rpm * 1000) / v.volume;
+    freqList.push(freq);
+    calcSPList.push(specificPower);
+    reqSPList.push(v.specificPowerRequired); // flat line
+  }
+
+  return { freqList, calcSPList, reqSPList, minFreq, maxFreq: v.maxFreq };
+}
+
+function updateSPChart(v) {
+  const d = mapDataSP(v);
+
+  spChart.data.datasets[0].data = toPoints(d.freqList, d.calcSPList);
+  spChart.data.datasets[1].data = toPoints(d.freqList, d.reqSPList);
+
+  spChart.options.scales.x.min = d.minFreq;
+  spChart.options.scales.x.max = d.maxFreq;
+
+  const allY = [...d.calcSPList, ...d.reqSPList].filter(Number.isFinite);
+  if (allY.length) {
+    const mn = Math.min(...allY), mx = Math.max(...allY);
+    const pad = (mx - mn) * 0.05 || 1;
+    spChart.options.scales.y.min = mn - pad;
+    spChart.options.scales.y.max = mx + pad;
+  }
+
+  spChart.update('none');
+  return d;
+}
+
 // ─── Image export & Elfsquad messaging ──────────────────────────────────────
 //
 // Each chart is exported from an offscreen fixed-size canvas rather than the
@@ -435,9 +535,11 @@ function sendImage(sourceChart, nodeId) {
 
 const FREQ_IMAGE_NODE_ID = '87f1b0ed-251b-4294-8fcf-08dedac916a3';
 const OC_IMAGE_NODE_ID   = '7a40d8e6-a6cb-4ca1-3ef0-08ded1e03ef1';
+const SP_IMAGE_NODE_ID = 'YOUR-SP-IMAGE-NODE-ID-HERE';
 
 let lastFreqSig = null;
 let lastOCSig = null;
+let lastSPSig = null;
 
 function handleConfigUpdate(config) {
   const values = extractValues(config);
@@ -463,6 +565,17 @@ function handleConfigUpdate(config) {
   } catch (e) {
     console.warn('OC chart update skipped:', e);
   }
+  
+  try {
+  const spData = updateSPChart(values);
+  const sig = JSON.stringify(spData);
+  if (sig !== lastSPSig) {
+    lastSPSig = sig;
+    sendImage(spChart, SP_IMAGE_NODE_ID);
+  }
+} catch (e) {
+  console.warn('Specific power chart update skipped:', e);
+}
 }
 
 window.addEventListener('message', function (e) {
@@ -505,7 +618,8 @@ Chart.register(window['chartjs-plugin-annotation'], whiteBackground);
 
 initFreqChart();
 initOCChart();
-
+initSPChart();
+  
 // Render defaults immediately so the graphs aren't empty before the first
 // message. extractValues() reads missing fields as NaN rather than throwing,
 // but each chart's update still runs inside its own try/catch in
