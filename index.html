@@ -280,17 +280,19 @@ function updateFrequencyChart(v) {
   const ocVals    = d.ocList.map(Number).filter(Number.isFinite);
   const shaftVals = d.shaftPowerList.filter(Number.isFinite);
 
-  if (ocVals.length) {
-    const mn = Math.min(...ocVals), mx = Math.max(...ocVals);
-    const pad = (mx - mn) * 0.05 || 1;
-    freqChart.options.scales.yOC.min = mn - pad;
-    freqChart.options.scales.yOC.max = mx + pad;
-  }
-  if (shaftVals.length) {
-    const mn = Math.min(...shaftVals), mx = Math.max(...shaftVals);
-    const pad = (mx - mn) * 0.05 || 1;
-    freqChart.options.scales.yShaft.min = mn - pad;
-    freqChart.options.scales.yShaft.max = mx + pad;
+    // Both y-axes share the same range, computed from the combined data of both series.
+  const allY = [...d.ocList, ...d.shaftPowerList].filter((v) => Number.isFinite(v));
+  if (allY.length) {
+    let yMin = Math.min(...allY);
+    let yMax = Math.max(...allY);
+    const pad = (yMax - yMin) * 0.05 || 1;
+    yMin -= pad;
+    yMax += pad;
+
+    freqChart.options.scales.yShaft.min = yMin;
+    freqChart.options.scales.yShaft.max = yMax;
+    freqChart.options.scales.yOC.min = yMin;
+    freqChart.options.scales.yOC.max = yMax;
   }
 
   const anns = freqChart.options.plugins.annotation.annotations;
