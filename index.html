@@ -247,8 +247,8 @@ function mapDataFrequency(v) {
   }
 
   // OC = shaft power * efficiency at that frequency.
-  function calcOC(freq) {
-    return calcShaftPower(freq) * calcEfficiency(freq);
+  function calcOC(freq, shaftPower) {
+    return shaftPower * calcEfficiency(freq);
   }
 
   // Build arrays from minFreq to maxFreq in 1 Hz steps
@@ -258,8 +258,11 @@ function mapDataFrequency(v) {
 
   for (let freq = minFreq; freq <= v.maxFreq; freq++) {
     freqList.push(freq);
-    shaftPowerList.push(calcShaftPower(freq));
-    ocList.push(calcOC(freq));
+    const shaftPower = calcShaftPower(freq)
+    const oc = calcOd(freq, shaftPower)
+
+    shaftPowerList.push(shaftPower);
+    ocList.push(oc);
   }
 
   return { freqList, shaftPowerList, ocList, minFreq, maxFreq: v.maxFreq };
