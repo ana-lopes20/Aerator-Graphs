@@ -431,20 +431,11 @@ function updateOCChart(values) {
     ocChart.options.scales.yOC.ticks = { ...ocChart.options.scales.yOC.ticks, stepSize: nice.step };
   }
 
-  const anns = ocChart.options.plugins.annotation.annotations;
-
-  anns.designLine.value = d.design;
-  anns.designLine.label = { ...anns.designLine.label, content: `Design: ${d.design}` };
-
-  anns.maxLine.value = d.max;
-  anns.maxLine.label = { ...anns.maxLine.label, content: `Maximum: ${d.max}` };
-
   ocChart.update('none');
-
   return d;
 }
 
-  // ─── Specific Power chart ────────────────────────────────────────────────────
+// ─── Specific Power chart ────────────────────────────────────────────────────
 let spChart;
 
 function initSPChart() {
@@ -529,10 +520,20 @@ function updateSPChart(v) {
 
   const allY = [...d.calcSPList, ...d.reqSPList].filter(Number.isFinite);
   if (allY.length) {
-    const mn = Math.min(...allY), mx = Math.max(...allY);
-    const pad = (mx - mn) * 0.05 || 1;
-    spChart.options.scales.y.min = mn - pad;
-    spChart.options.scales.y.max = mx + pad;
+    let yMin = Math.min(...allY);
+    let yMax = Math.max(...allY);
+    const pad = (yMax - yMin) * 0.05 || 1;
+    yMin -= pad;
+    yMax += pad;
+
+    const nice = niceBounds(yMin, yMax);
+
+    spChart.options.scales.yShaft.min = nice.min;
+    spChart.options.scales.yShaft.max = nice.max;
+    spChart.options.scales.yShaft.ticks = { ...ocChart.options.scales.yShaft.ticks, stepSize: nice.step };
+    spChart.options.scales.yOC.min = nice.min;
+    spChart.options.scales.yOC.max = nice.max;
+    spChart.options.scales.yOC.ticks = { ...ocChart.options.scales.yOC.ticks, stepSize: nice.step };
   }
 
   spChart.update('none');
