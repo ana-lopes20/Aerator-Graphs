@@ -241,36 +241,36 @@ function calcShaftPower(hz, maxHz, RPM, A, B, en, ed, diameter, designimmersion)
 function mapDataFrequency(v) {
   const minFreq = v.maxFreq - 20;  // 60Hz → 40–60, 50Hz → 30–50
 
-    // Shaft power at a given Hz
-    function calcShaftPower(freq) {
-      const rpm = (freq / v.maxFreq) * v.RPM;
-      return (v.A * (v.designImmersion/v.diameter) + v.B)
-          * Math.pow(rpm / 60, v.en - 2)
-          * Math.pow(v.diameter / 1000, v.ed - 1)
-          * 9.81;
-    }
+  // Shaft power at a given Hz
+  function calcShaftPower(freq) {
+    const rpm = (freq / v.maxFreq) * v.RPM;
+    return (v.A * (v.designImmersion/v.diameter) + v.B)
+        * Math.pow(rpm / 60, v.en - 2)
+        * Math.pow(v.diameter / 1000, v.ed - 1)
+        * 9.81;
+  }
 
-    function calcEfficiency(freq) {
-      return (freq / v.maxFreq) * v.rendement
-    }
+  function calcEfficiency(freq) {
+    return (freq / v.maxFreq) * v.rendement
+  }
 
-    // OC = shaft power * efficiency at that frequency.
-    function calcOC(freq) {
-      return calcShaftPower(freq) * calcEfficiency(freq);
-    }
+  // OC = shaft power * efficiency at that frequency.
+  function calcOC(freq) {
+    return calcShaftPower(freq) * calcEfficiency(freq);
+  }
 
-    // Build arrays from minFreq to maxFreq in 1 Hz steps
-    const freqList   = [];
-    const shaftPowerList = [];
-    const ocList    = [];
+  // Build arrays from minFreq to maxFreq in 1 Hz steps
+  const freqList   = [];
+  const shaftPowerList = [];
+  const ocList    = [];
 
-    for (let freq = minFreq; freq <= v.maxFreq; freq++) {
-      freqList.push(freq);
-      shaftPowerList.push(calcShaftPower(freq));
-      ocList.push(calcOC(freq));
-    }
+  for (let freq = minFreq; freq <= v.maxFreq; freq++) {
+    freqList.push(freq);
+    shaftPowerList.push(calcShaftPower(freq));
+    ocList.push(calcOC(freq));
+  }
 
-    return { freqList, shaftPowerList, ocList, minFreq, maxFreq };
+  return { freqList, shaftPowerList, ocList, minFreq, maxFreq: v.maxFreq };
 }
 
 function updateFrequencyChart(v) {
