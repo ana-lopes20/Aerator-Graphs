@@ -230,14 +230,6 @@ function extractValues(config) {
 }
 
 // ─── Frequency curve ────────────────────────────────────────────────────────
-
-function calcShaftPower(hz, maxHz, RPM, A, B, en, ed, diameter, designimmersion) {
-  return (A * designimmersion + B)
-       * Math.pow(RPM / 60, en - 2)
-       * Math.pow(diameter / 1000, ed - 1)
-       * 9.81;
-}
-
 function mapDataFrequency(v) {
   const minFreq = v.maxFreq - 20;  // 60Hz → 40–60, 50Hz → 30–50
 
