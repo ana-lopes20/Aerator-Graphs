@@ -71,7 +71,7 @@
   </div>
 </div>
 
-  <div id="tab-sp" class="tab-pane" style="display:none">
+<div id="tab-sp" class="tab-pane" style="display:none">
   <h3>Specific Power</h3>
   <div class="chart-wrap">
     <canvas id="spChart"></canvas>
@@ -267,13 +267,13 @@ function mapDataFrequency(v) {
   for (let freq = minFreq; freq <= v.maxFreq; freq++) {
     freqList.push(freq);
     const shaftPower = calcShaftPower(freq)
-    const oc = calcOd(freq, shaftPower)
+    const oc = calcOC(freq, shaftPower)
 
     shaftPowerList.push(shaftPower);
     ocList.push(oc);
   }
 
-  return { freqList, shaftPowerList, ocList, minFreq, maxFreq: v.maxFreq };
+  return { freqList, shaftPowerList, ocList, minFreq, maxFreq: v.maxFreq, design: v.designImmersion};
 }
 
 function updateFrequencyChart(v) {
@@ -285,10 +285,7 @@ function updateFrequencyChart(v) {
   freqChart.options.scales.x.min = d.minFreq;
   freqChart.options.scales.x.max = d.maxFreq;
 
-  const ocVals    = d.ocList.map(Number).filter(Number.isFinite);
-  const shaftVals = d.shaftPowerList.filter(Number.isFinite);
-
-    // Both y-axes share the same range, computed from the combined data of both series.
+  // Both y-axes share the same range, computed from the combined data of both series.
   const allY = [...d.ocList, ...d.shaftPowerList].filter((v) => Number.isFinite(v));
   if (allY.length) {
     let yMin = Math.min(...allY);
