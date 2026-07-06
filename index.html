@@ -174,11 +174,12 @@ function baseDatasets() {
 
 function initFreqChart() {
   const ctx = document.getElementById('freqChart').getContext('2d');
+  const options = baseChartOptions('Hz')
   options.scales.x.ticks = { stepSize: 2 };
   freqChart = new Chart(ctx, {
     type: 'line',
     data: { datasets: baseDatasets() },
-    options: baseChartOptions('Hz')
+    options
   });
 }
 
