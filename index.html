@@ -425,11 +425,22 @@ function updateOCChart(values) {
 
   const anns = ocChart.options.plugins.annotation.annotations;
 
+  // ─── Avoid overlapping "Design" / "Maximum" labels ──────────────────────
+  const xRange = niceX.max - niceX.min;
+  const labelsWouldOverlap =
+  Number.isFinite(d.design) && Number.isFinite(d.max) &&
+  xRange > 0 &&
+  Math.abs(d.max - d.design) / xRange < 0.18; // ~ label width vs chart width
+  
   anns.designLine.value = d.design;
-  anns.designLine.label = { ...anns.designLine.label, content: `Design: ${d.design}` };
-
+  anns.designLine.label = { ...anns.designLine.label, content: `Design: ${d.design}`, position: 'start' };
+  
   anns.maxLine.value = d.max;
-  anns.maxLine.label = { ...anns.maxLine.label, content: `Maximum: ${d.max}` };
+  anns.maxLine.label = {
+  ...anns.maxLine.label,
+  content: `Maximum: ${d.max}`,
+  position: labelsWouldOverlap ? 'end' : 'start'
+  };
 
   ocChart.update('none');
   return d;
