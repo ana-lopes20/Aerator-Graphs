@@ -540,6 +540,16 @@ function initSPChart() {
 
 function mapDataSP(v) {
   const minFreq = v.maxFreq - 20;
+
+  // Shaft power at a given Hz
+  function calcShaftPower(freq) {
+    const rpm = (freq / v.maxFreq) * v.RPM;
+    return (v.A * (v.designImmersion/v.diameter) + v.B)
+        * Math.pow(rpm / 60, v.en - 2)
+        * Math.pow(v.diameter / 1000, v.ed - 1)
+        * 9.81;
+  }
+  
   const freqList = [];
   const calcSPList = [];
   const reqSPList = [];
