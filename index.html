@@ -426,20 +426,55 @@ function updateOCChart(values) {
   const anns = ocChart.options.plugins.annotation.annotations;
 
   // ─── Avoid overlapping "Design" / "Maximum" labels ──────────────────────
+  // Both labels stay at the top of their line. When the two lines are close
+  // enough that the labels would collide, each label is shifted sideways to
+  // its own side of its line (left line → label on the left, right line →
+  // label on the right), so they sit neatly next to each other and never
+  // cover the lines or each other. Label widths are measured in pixels for
+  // an accurate overlap check.
+  const designContent = `Design: ${d.design}`;
+  const maxContent = `Maximum: ${d.max}`;
+ 
+  const ctx2d = ocChart.ctx;
+  ctx2d.save();
+  ctx2d.font = 'bold 12px Arial'; // matches the annotation plugin's default label font
+  const labelPadding = 6;         // plugin default padding on each side
+  const gapFromLine = 4;          // small gap between line and label edge
+  const designW = ctx2d.measureText(designContent).width + labelPadding * 2;
+  const maxW = ctx2d.measureText(maxContent).width + labelPadding * 2;
+  ctx2d.restore();
+ 
+  // Pixel distance between the two lines on the current x-scale.
+  const chartArea = ocChart.chartArea;
   const xRange = niceX.max - niceX.min;
+  const pxPerUnit = chartArea && xRange > 0 ? chartArea.width / xRange : 0;
+  const pxDistance = Math.abs(d.max - d.design) * pxPerUnit;
+ 
+  // Centered labels would collide if the gap between lines is smaller than
+  // the two half-widths combined (plus a little breathing room).
   const labelsWouldOverlap =
-  Number.isFinite(d.design) && Number.isFinite(d.max) &&
-  xRange > 0 &&
-  Math.abs(d.max - d.design) / xRange < 0.18; // ~ label width vs chart width
-  
+    Number.isFinite(d.design) && Number.isFinite(d.max) &&
+    pxPerUnit > 0 &&
+    pxDistance < designW / 2 + maxW / 2 + 12;
+ 
+  const designIsLeft = d.design <= d.max;
+  const designAdjust = designW / 2 + gapFromLine;
+  const maxAdjust = maxW / 2 + gapFromLine;
+ 
   anns.designLine.value = d.design;
-  anns.designLine.label = { ...anns.designLine.label, content: `Design: ${d.design}`, position: 'start' };
-  
+  anns.designLine.label = {
+    ...anns.designLine.label,
+    content: designContent,
+    position: 'start',
+    xAdjust: labelsWouldOverlap ? (designIsLeft ? -designAdjust : designAdjust) : 0
+  };
+ 
   anns.maxLine.value = d.max;
   anns.maxLine.label = {
-  ...anns.maxLine.label,
-  content: `Maximum: ${d.max}`,
-  position: labelsWouldOverlap ? 'end' : 'start'
+    ...anns.maxLine.label,
+    content: maxContent,
+    position: 'start',
+    xAdjust: labelsWouldOverlap ? (designIsLeft ? maxAdjust : -maxAdjust) : 0
   };
 
   ocChart.update('none');
