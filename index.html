@@ -510,8 +510,7 @@ function mapDataSP(v) {
   const reqSPList = [];
 
   for (let freq = minFreq; freq <= v.maxFreq; freq++) {
-    const rpm = (freq / v.maxFreq) * v.RPM;
-    const specificPower = round((rpm * 1000) / v.volume, 2);
+    const specificPower = round((calcShaftPower(freq) * 1000) / v.volume, 2);
     freqList.push(freq);
     calcSPList.push(specificPower);
     reqSPList.push(round(v.specificPowerRequired,2)); // flat line
