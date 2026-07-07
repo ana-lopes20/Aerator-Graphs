@@ -134,8 +134,8 @@ function baseChartOptions(xTitle) {
       yShaft: {
         type: 'linear',
         position: 'left',
-        title: { display: true, text: 'Aerator Shaft [kW]', color: '#c0392b' },
-        ticks: { color: '#c0392b' },
+        title: { display: true, text: 'Aerator Shaft [kW]', color: '#eb7f04' },
+        ticks: { color: '#eb7f04' },
         grid: { color: '#e0e0e0' }
       },
       yOC: {
@@ -200,8 +200,8 @@ function baseDatasets() {
       label: 'Aerator Shaft [kW]',
       data: [],
       yAxisID: 'yShaft',
-      borderColor: '#c0392b',
-      backgroundColor: '#c0392b',
+      borderColor: '#eb7f04',
+      backgroundColor: '#eb7f04',
       borderWidth: 2,
       pointRadius: 0,
       tension: 0
@@ -456,12 +456,12 @@ function initSPChart() {
         {
           label: 'Required Specific Power [W/m³]',
           data: [],
-          borderColor: '#e67e22',
-          backgroundColor: '#e67e22',
+          borderColor: '#eb7f04',
+          backgroundColor: '#eb7f04',
           borderWidth: 2,
           pointRadius: 0,
           tension: 0,
-          borderDash: [6, 3]
+          // borderDash: [6, 3]
         }
       ]
     },
