@@ -520,7 +520,7 @@ function updateSPChart(v) {
 
   const allY = [...d.calcSPList, ...d.reqSPList].filter(Number.isFinite);
   if (allY.length) {
-    let yMin = Math.min(...allY);
+    let yMin = Math.min(...allY) - 10;
     let yMax = Math.max(...allY);
     const pad = (yMax - yMin) * 0.05 || 1;
     yMin -= pad;
