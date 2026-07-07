@@ -211,7 +211,7 @@ function baseDatasets() {
 
 function initFreqChart() {
   const ctx = document.getElementById('freqChart').getContext('2d');
-  const options = baseChartOptions('Hz')
+  const options = baseChartOptions('Frequency [Hz]')
   options.scales.x.ticks = { stepSize: 2 };
   freqChart = new Chart(ctx, {
     type: 'line',
@@ -300,8 +300,8 @@ function mapDataFrequency(v) {
 
   for (let freq = minFreq; freq <= v.maxFreq; freq++) {
     freqList.push(freq);
-    const shaftPower = calcShaftPower(freq)
-    const oc = calcOC(freq, shaftPower)
+    const shaftPower = round(calcShaftPower(freq), 2)
+    const oc = round(calcOC(freq, shaftPower), 2) 
 
     shaftPowerList.push(shaftPower);
     ocList.push(oc);
@@ -375,14 +375,14 @@ function mapDataOC(v) {
 
   let max = 0
   if (immersionDepthGearbox > immersionDepthMotor) {
-    max = round(immersionDepthMotor, 1)
+    max = round(immersionDepthMotor, 2)
   } else {
-    max = round(immersionDepthGearbox, 1)
+    max = round(immersionDepthGearbox, 2)
   }
 
   const limit = 0.125 * v.diameter
   if (immersionDepthGearbox > limit || immersionDepthMotor > limit) {
-    max = round(limit, 1)
+    max = round(limit, 2)
   }
 
   return {
@@ -473,7 +473,7 @@ function initSPChart() {
         x: {
           type: 'linear',
           position: 'bottom',
-          title: { display: true, text: 'Hz' },
+          title: { display: true, text: 'Frequency [Hz]' },
           ticks: { stepSize: 2 },
           grid: { color: '#e0e0e0' }
         },
@@ -500,10 +500,10 @@ function mapDataSP(v) {
 
   for (let freq = minFreq; freq <= v.maxFreq; freq++) {
     const rpm = (freq / v.maxFreq) * v.RPM;
-    const specificPower = (rpm * 1000) / v.volume;
+    const specificPower = round((rpm * 1000) / v.volume, 2);
     freqList.push(freq);
     calcSPList.push(specificPower);
-    reqSPList.push(v.specificPowerRequired); // flat line
+    reqSPList.push(round(v.specificPowerRequired,2)); // flat line
   }
 
   return { freqList, calcSPList, reqSPList, minFreq, maxFreq: v.maxFreq };
