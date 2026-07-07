@@ -250,25 +250,25 @@ function extractValues(config) {
     ed: Number(get('d94a4728-ae65-4323-3ed4-08ded1e03ef1')),
     RPM: Number(get('1f189a11-8930-4983-d421-08ded1df9683')),
     designImmersion: Number(get('0107f6ba-fc0c-480a-f105-08ded128ace1') ?? 76),
-
+    
     // ─── ADJUST THESE KEYS TO MATCH YOUR ELFSQUAD FEATURE CODES ──────────
     // frequency chart only
     maxFreq: Number(get('87593bef-99fe-47e0-1e8b-08dedac84586') ?? 50),
     rendement: Number(get('71959926-2671-4c7b-0acb-08dec13e7ead') ?? 2.3),
     // ───────────────────────────────────────────────────────────────────
-
+    
     // OC/immersion chart only
     torqueGearbox: Number(get('e116ed81-9463-4612-0140-08ded1defffe')),
     minServiceFactor: Number(get('cd55d031-3552-450a-c5fa-08dec13e7b91')),
     actualMotorPowerWithDerating: Number(get('0567a18a-77cd-4c9c-d434-08ded1df9683')),
     gearboxEfficiency: Number(get('c0652a53-6407-40fc-1338-08dec1e9ecbf')),
     derating: Number(get('69a3a91b-6025-4779-9c8f-08dec205df14')),
-   // ───────────────────────────────────────────────────────────────────
-
+    // ───────────────────────────────────────────────────────────────────
+    
     // Specific Power chart only
-  volume: Number(get('aeef01a0-da11-4692-1b97-08dedac8cd86')),
-  specificPowerRequired: Number(get('de426e68-ea83-4d67-e684-08dedad47bc0'))
-  };
+    volume: Number(get('aeef01a0-da11-4692-1b97-08dedac8cd86')),
+    specificPowerRequired: Number(get('de426e68-ea83-4d67-e684-08dedad47bc0'))
+    };
 }
 
 // ─── Frequency curve ────────────────────────────────────────────────────────
@@ -337,14 +337,6 @@ function updateFrequencyChart(v) {
     freqChart.options.scales.yOC.max = nice.max;
     freqChart.options.scales.yOC.ticks = { ...freqChart.options.scales.yOC.ticks, stepSize: nice.step };
   }
-
-  const anns = freqChart.options.plugins.annotation.annotations;
-
-  anns.designLine.value = d.design;
-  anns.designLine.label = { ...anns.designLine.label, content: `Design: ${d.design} Hz` };
-
-  anns.maxLine.value = d.maxFreq;
-  anns.maxLine.label = { ...anns.maxLine.label, content: `Maximum: ${d.maxFreq} Hz` };
 
   freqChart.update('none');
 
@@ -430,6 +422,14 @@ function updateOCChart(values) {
     ocChart.options.scales.yOC.max = nice.max;
     ocChart.options.scales.yOC.ticks = { ...ocChart.options.scales.yOC.ticks, stepSize: nice.step };
   }
+
+  const anns = ocChart.options.plugins.annotation.annotations;
+
+  anns.designLine.value = d.design;
+  anns.designLine.label = { ...anns.designLine.label, content: `Design: ${d.design}` };
+
+  anns.maxLine.value = d.max;
+  anns.maxLine.label = { ...anns.maxLine.label, content: `Maximum: ${d.max}` };
 
   ocChart.update('none');
   return d;
