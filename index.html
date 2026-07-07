@@ -528,12 +528,9 @@ function updateSPChart(v) {
 
     const nice = niceBounds(yMin, yMax);
 
-    spChart.options.scales.yShaft.min = nice.min;
-    spChart.options.scales.yShaft.max = nice.max;
-    spChart.options.scales.yShaft.ticks = { ...spChart.options.scales.yShaft.ticks, stepSize: nice.step };
-    spChart.options.scales.yOC.min = nice.min;
-    spChart.options.scales.yOC.max = nice.max;
-    spChart.options.scales.yOC.ticks = { ...spChart.options.scales.yOC.ticks, stepSize: nice.step };
+    spChart.options.scales.y.min = nice.min;
+    spChart.options.scales.y.max = nice.max;
+    spChart.options.scales.y.ticks = { ...spChart.options.scales.y.ticks, stepSize: nice.step };
   }
 
   spChart.update('none');
